@@ -3,7 +3,11 @@ class Point {
     public toString(): string {
         return `Point (${this.x},${this.y})`;
     }
-    public in(rect: Label): boolean {
+    /**
+     * Test if this point is contained by the rect.
+     * @param rect  
+     */
+    public in(rect: Rect): boolean {
         return ((rect.x <= this.x && this.x <= rect.x + rect.w)
             && (rect.y <= this.y && this.y <= rect.y + rect.h));
     }
@@ -35,7 +39,7 @@ class Label extends Rect {
         this.fontFamily = 'sans-serif';
         this.background = '#ffffff';
         this.textColor = '#000000';
-        this.borderColor = '#00ff00';
+        this.borderColor = '#ffff0088';
         this.showBorder = false;
     }
 
@@ -43,9 +47,8 @@ class Label extends Rect {
         return ctx.getImageData(this.x, this.y, this.w, this.h);
     }
     paint(ctx: CanvasRenderingContext2D) {
-        //update text and width
-        this.text = `(${this.x},${this.y})`;
-        let tm = ctx.measureText(this.text);
+
+        // let tm = ctx.measureText(this.text);
         // this.w = tm.width;
 
         //background
@@ -55,16 +58,26 @@ class Label extends Rect {
         //border
         if (this.showBorder) {
             ctx.strokeStyle = this.borderColor;
+            ctx.setLineDash([5, 10]);
+            ctx.lineWidth = 4;
             ctx.strokeRect(this.x, this.y, this.w, this.h);
+            ctx.setLineDash([]);
         }
 
         //text
+        this.text = `(${this.x},${this.y})`;
         ctx.fillStyle = this.textColor;
         ctx.font = this.font;
         ctx.fillText(this.text, this.x, this.y + this.h - 8);
     }
 }
 
+
+/**
+ * Measure the real height of the text drawn with the context.
+ * @param ctx the context which draw the text
+ * @param txt the text be drawn
+ */
 function measureTextHeight(ctx: CanvasRenderingContext2D, txt: string): number {
 
     var tm = ctx.measureText(txt);
@@ -102,55 +115,53 @@ function getMousePos(canvas, evt): Point {
 
 function clearCanvas(ctx: CanvasRenderingContext2D) {
     let canvas = ctx.canvas;
-    ctx.fillStyle = '#000';
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
-function between(num: number, min: number, max: number): boolean {
-    return min <= num && num <= max;
-}
 
 function repaint() {
     clearCanvas(ctx);
 
-    for (let pos of rects) {
+    for (let pos of labels) {
         if (selected)
             selected.showBorder = true;
         pos.paint(ctx);
         // console.log(`paint ${pos.text}`);
     }
     preview();
+
 }
 
 
-const HEIGHT = 500;
-const WIDTH = 1200;
+const HEIGHT = 400;
+const WIDTH = 600;
 const $canvas = $('#canvas');
 const canvas = <HTMLCanvasElement>$canvas[0];
 const ctx = canvas.getContext('2d');
-canvas.width = WIDTH;
-canvas.height = HEIGHT;
+
 $canvas.width(WIDTH);
 $canvas.height(HEIGHT);
-
-var rects = []
+canvas.width = WIDTH;
+canvas.height = HEIGHT;
+var labels = []
 for (let i = 0; i < 4; i++) {
     let r = new Label(i * 64, i * 64, 256, 128);
     r.text = `${r.x},${r.y}`;
-    rects.push(r);
+    labels.push(r);
 }
 canvas.onmousemove = evt => {
     let p = getMousePos(canvas, evt);
-    for (let pos of rects)
+    for (let pos of labels)
         pos.showBorder = false;
 
-    for (let pos of rects) {//find a rect to be focused
+    for (let pos of labels) {//find a rect to be focused
         pos.showBorder = p.in(pos);
         if (pos.showBorder)
             break;
     }
 
-    for (let pos of rects) {
+    for (let pos of labels) {
 
         if (selected === pos) {
             pos.showBorder = true;
@@ -172,7 +183,11 @@ let $posx = $('#posx'),
     $background = $('#background'),
     $bold = $('#bold'),
     $italic = $('#italic'),
-    $fontSize = $('#fontSize');
+    $fontSize = $('#fontSize'),
+    $canvasH = $('#canvasH'),
+    $canvasW = $('#canvasW'),
+    $reverse = $('#reverse');
+
 $posx.on('input', e => {
     selected.x = parseInt($posx.val().toString(), 10);
     console.log(selected.x);
@@ -194,16 +209,49 @@ $height.on('input', e => {
     console.log(selected.x);
 
 });
+$canvasH.val(HEIGHT).on('input', e => {
+    let h = parseInt($canvasH.val().toString(), 10);
+    canvas.height = h;
+    $canvas.height(h);
+    console.log(h);
+});
+
+$canvasW.val(WIDTH).on('input', e => {
+    let w = parseInt($canvasW.val().toString(), 10);
+    canvas.width = w;
+    $canvas.width(w);
+    console.log(w);
+});
+
 $color.change(e => {
     selected.textColor = $color.val();
     console.log($color.val());
-})
+});
 $background.change(e => {
     selected.background = $background.val();
     console.log($background.val());
-})
-
+});
+$reverse.click(e => {
+    e.preventDefault();
+    if (selected == null) {//reverse all
+        for (let label of labels) {
+            let color = label.textColor;
+            let background = label.background;
+            label.textColor = background;
+            label.background = color;
+        }
+    } else {//reverse selected
+        let color = selected.textColor;
+        let background = selected.background;
+        $background.val(color);
+        $color.val(background);
+        selected.textColor = background;
+        selected.background = color;
+    }
+});
 function fontChange(evt) {
+    if (selected == null)
+        return;
     let fontStyle = '';
     console.log($bold.attr("checked") + ' ' + $italic.attr("checked"));
     if ($bold.prop('checked'))
@@ -213,7 +261,6 @@ function fontChange(evt) {
     selected.fontStyle = fontStyle;
     console.log(fontStyle);
 }
-
 $bold.change(fontChange);
 $italic.change(fontChange);
 $fontSize.on('input', evt => {
@@ -221,12 +268,13 @@ $fontSize.on('input', evt => {
     console.log($fontSize.val());
 })
 
+
 var selected = null;
 var dragOffset;
 canvas.onmousedown = evt => {
     let p = getMousePos(canvas, evt);
     selected = null;
-    for (let rect of rects) {
+    for (let rect of labels) {
         if (p.in(rect)) {
             if (evt.which === 1) {
                 dragOffset = new Point(p.
@@ -244,22 +292,17 @@ canvas.onmousedown = evt => {
                 $fontSize.val(parseInt(selected.fontSize));
                 console.log(`down ${p}`);
             }
-            if (evt.which === 3) {
-                console.log(rect.toImage(ctx));
-            }
+
             return;
         }
     }
 }
 canvas.onmouseup = evt => {
     dragOffset = undefined;
-
 }
 
 function preview() {
-    console.log('preview');
-    let img: HTMLImageElement;
-    let area = (selected == null) ? new Rect(0,0,canvas.width,canvas.height) : selected;
+    let area = (selected == null) ? new Rect(0, 0, canvas.width, canvas.height) : selected;
     let w = area.w * 0.5,
         h = area.h * 0.5;
     let temp = Canvas2Image.sliceCanvas(canvas, area.x, area.y, area.w, area.h);
@@ -268,6 +311,9 @@ function preview() {
 
 }
 
+$canvas.keypress(evt => {
+    console.log(evt.which);
+})
 
 setInterval(repaint, 16);
 

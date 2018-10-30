@@ -19,6 +19,10 @@ var Point = /** @class */ (function () {
     Point.prototype.toString = function () {
         return "Point (" + this.x + "," + this.y + ")";
     };
+    /**
+     * Test if this point is contained by the rect.
+     * @param rect
+     */
     Point.prototype.in = function (rect) {
         return ((rect.x <= this.x && this.x <= rect.x + rect.w)
             && (rect.y <= this.y && this.y <= rect.y + rect.h));
@@ -48,7 +52,7 @@ var Label = /** @class */ (function (_super) {
         _this.fontFamily = 'sans-serif';
         _this.background = '#ffffff';
         _this.textColor = '#000000';
-        _this.borderColor = '#00ff00';
+        _this.borderColor = '#ffff0088';
         _this.showBorder = false;
         return _this;
     }
@@ -63,9 +67,7 @@ var Label = /** @class */ (function (_super) {
         return ctx.getImageData(this.x, this.y, this.w, this.h);
     };
     Label.prototype.paint = function (ctx) {
-        //update text and width
-        this.text = "(" + this.x + "," + this.y + ")";
-        var tm = ctx.measureText(this.text);
+        // let tm = ctx.measureText(this.text);
         // this.w = tm.width;
         //background
         ctx.fillStyle = this.background;
@@ -73,15 +75,24 @@ var Label = /** @class */ (function (_super) {
         //border
         if (this.showBorder) {
             ctx.strokeStyle = this.borderColor;
+            ctx.setLineDash([5, 10]);
+            ctx.lineWidth = 4;
             ctx.strokeRect(this.x, this.y, this.w, this.h);
+            ctx.setLineDash([]);
         }
         //text
+        this.text = "(" + this.x + "," + this.y + ")";
         ctx.fillStyle = this.textColor;
         ctx.font = this.font;
         ctx.fillText(this.text, this.x, this.y + this.h - 8);
     };
     return Label;
 }(Rect));
+/**
+ * Measure the real height of the text drawn with the context.
+ * @param ctx the context which draw the text
+ * @param txt the text be drawn
+ */
 function measureTextHeight(ctx, txt) {
     var tm = ctx.measureText(txt);
     var h;
@@ -110,16 +121,13 @@ function getMousePos(canvas, evt) {
 }
 function clearCanvas(ctx) {
     var canvas = ctx.canvas;
-    ctx.fillStyle = '#000';
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
-function between(num, min, max) {
-    return min <= num && num <= max;
 }
 function repaint() {
     clearCanvas(ctx);
-    for (var _i = 0, rects_1 = rects; _i < rects_1.length; _i++) {
-        var pos = rects_1[_i];
+    for (var _i = 0, labels_1 = labels; _i < labels_1.length; _i++) {
+        var pos = labels_1[_i];
         if (selected)
             selected.showBorder = true;
         pos.paint(ctx);
@@ -127,35 +135,35 @@ function repaint() {
     }
     preview();
 }
-var HEIGHT = 500;
-var WIDTH = 1200;
+var HEIGHT = 400;
+var WIDTH = 600;
 var $canvas = $('#canvas');
 var canvas = $canvas[0];
 var ctx = canvas.getContext('2d');
-canvas.width = WIDTH;
-canvas.height = HEIGHT;
 $canvas.width(WIDTH);
 $canvas.height(HEIGHT);
-var rects = [];
+canvas.width = WIDTH;
+canvas.height = HEIGHT;
+var labels = [];
 for (var i = 0; i < 4; i++) {
     var r = new Label(i * 64, i * 64, 256, 128);
     r.text = r.x + "," + r.y;
-    rects.push(r);
+    labels.push(r);
 }
 canvas.onmousemove = function (evt) {
     var p = getMousePos(canvas, evt);
-    for (var _i = 0, rects_2 = rects; _i < rects_2.length; _i++) {
-        var pos = rects_2[_i];
+    for (var _i = 0, labels_2 = labels; _i < labels_2.length; _i++) {
+        var pos = labels_2[_i];
         pos.showBorder = false;
     }
-    for (var _a = 0, rects_3 = rects; _a < rects_3.length; _a++) { //find a rect to be focused
-        var pos = rects_3[_a];
+    for (var _a = 0, labels_3 = labels; _a < labels_3.length; _a++) { //find a rect to be focused
+        var pos = labels_3[_a];
         pos.showBorder = p.in(pos);
         if (pos.showBorder)
             break;
     }
-    for (var _b = 0, rects_4 = rects; _b < rects_4.length; _b++) {
-        var pos = rects_4[_b];
+    for (var _b = 0, labels_4 = labels; _b < labels_4.length; _b++) {
+        var pos = labels_4[_b];
         if (selected === pos) {
             pos.showBorder = true;
             if (dragOffset) { //dragging
@@ -167,7 +175,7 @@ canvas.onmousemove = function (evt) {
         }
     }
 };
-var $posx = $('#posx'), $posy = $('#posy'), $width = $('#width'), $height = $('#height'), $color = $('#color'), $background = $('#background'), $bold = $('#bold'), $italic = $('#italic'), $fontSize = $('#fontSize');
+var $posx = $('#posx'), $posy = $('#posy'), $width = $('#width'), $height = $('#height'), $color = $('#color'), $background = $('#background'), $bold = $('#bold'), $italic = $('#italic'), $fontSize = $('#fontSize'), $canvasH = $('#canvasH'), $canvasW = $('#canvasW'), $reverse = $('#reverse');
 $posx.on('input', function (e) {
     selected.x = parseInt($posx.val().toString(), 10);
     console.log(selected.x);
@@ -184,6 +192,18 @@ $height.on('input', function (e) {
     selected.h = parseInt($height.val().toString(), 10);
     console.log(selected.x);
 });
+$canvasH.val(HEIGHT).on('input', function (e) {
+    var h = parseInt($canvasH.val().toString(), 10);
+    canvas.height = h;
+    $canvas.height(h);
+    console.log(h);
+});
+$canvasW.val(WIDTH).on('input', function (e) {
+    var w = parseInt($canvasW.val().toString(), 10);
+    canvas.width = w;
+    $canvas.width(w);
+    console.log(w);
+});
 $color.change(function (e) {
     selected.textColor = $color.val();
     console.log($color.val());
@@ -192,7 +212,29 @@ $background.change(function (e) {
     selected.background = $background.val();
     console.log($background.val());
 });
+$reverse.click(function (e) {
+    e.preventDefault();
+    if (selected == null) { //reverse all
+        for (var _i = 0, labels_5 = labels; _i < labels_5.length; _i++) {
+            var label = labels_5[_i];
+            var color = label.textColor;
+            var background = label.background;
+            label.textColor = background;
+            label.background = color;
+        }
+    }
+    else { //reverse selected
+        var color = selected.textColor;
+        var background = selected.background;
+        $background.val(color);
+        $color.val(background);
+        selected.textColor = background;
+        selected.background = color;
+    }
+});
 function fontChange(evt) {
+    if (selected == null)
+        return;
     var fontStyle = '';
     console.log($bold.attr("checked") + ' ' + $italic.attr("checked"));
     if ($bold.prop('checked'))
@@ -213,8 +255,8 @@ var dragOffset;
 canvas.onmousedown = function (evt) {
     var p = getMousePos(canvas, evt);
     selected = null;
-    for (var _i = 0, rects_5 = rects; _i < rects_5.length; _i++) {
-        var rect = rects_5[_i];
+    for (var _i = 0, labels_6 = labels; _i < labels_6.length; _i++) {
+        var rect = labels_6[_i];
         if (p.in(rect)) {
             if (evt.which === 1) {
                 dragOffset = new Point(p.
@@ -232,9 +274,6 @@ canvas.onmousedown = function (evt) {
                 $fontSize.val(parseInt(selected.fontSize));
                 console.log("down " + p);
             }
-            if (evt.which === 3) {
-                console.log(rect.toImage(ctx));
-            }
             return;
         }
     }
@@ -243,13 +282,14 @@ canvas.onmouseup = function (evt) {
     dragOffset = undefined;
 };
 function preview() {
-    console.log('preview');
-    var img;
     var area = (selected == null) ? new Rect(0, 0, canvas.width, canvas.height) : selected;
     var w = area.w * 0.5, h = area.h * 0.5;
     var temp = Canvas2Image.sliceCanvas(canvas, area.x, area.y, area.w, area.h);
     temp = Canvas2Image.scaleCanvas(temp, w, h);
     Canvas2Image.sliceIntoImage(temp, $('#preview')[0], 0, 0, w, h);
 }
+$canvas.keypress(function (evt) {
+    console.log(evt.which);
+});
 setInterval(repaint, 16);
 //# sourceMappingURL=main.js.map
